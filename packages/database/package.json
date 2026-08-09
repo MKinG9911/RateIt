@@ -1,0 +1,37 @@
+{
+  "name": "@rateit/database",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev",
+    "push": "prisma db push",
+    "seed": "tsx src/seed.ts",
+    "studio": "prisma studio",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no lint configured'"
+  },
+  "dependencies": {
+    "@prisma/client": "6.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.2",
+    "prisma": "6.5.0",
+    "tsx": "4.19.3",
+    "typescript": "5.7.3"
+  },
+  "prisma": {
+    "seed": "tsx src/seed.ts"
+  }
+}

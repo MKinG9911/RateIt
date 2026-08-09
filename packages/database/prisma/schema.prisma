@@ -1,0 +1,190 @@
+// ──────────────────────────────────────────────────────────
+// RateIt — Prisma Schema
+// ──────────────────────────────────────────────────────────
+// ⚠️  DATABASE_URL must point to your Supabase PostgreSQL.
+//     Do NOT run migrations against a local/other database.
+// ──────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ──────────────────────────────────────────────────────────
+// Enums
+// ──────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum ListingStatus {
+  ACTIVE
+  HIDDEN
+  REMOVED
+}
+
+enum ReviewStatus {
+  VISIBLE
+  HIDDEN
+  REMOVED
+}
+
+// ──────────────────────────────────────────────────────────
+// User — synced from Supabase Auth
+// ──────────────────────────────────────────────────────────
+
+model User {
+  id          String     @id @db.Uuid // Same as Supabase Auth user ID (JWT sub)
+  email       String     @unique
+  username    String?    @unique
+  displayName String?
+  role        UserRole   @default(USER)
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  listings Listing[]
+  reviews  Review[]
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+// ──────────────────────────────────────────────────────────
+// Category — platform-managed
+// ──────────────────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  listings       Listing[]
+  ratingCriteria RatingCriterion[]
+
+  @@index([isActive])
+  @@map("categories")
+}
+
+// ──────────────────────────────────────────────────────────
+// Listing — user-submitted items
+// ──────────────────────────────────────────────────────────
+
+model Listing {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId       String        @db.Uuid
+  createdById      String        @db.Uuid
+  name             String
+  normalizedName   String
+  slug             String
+  description      String?
+  brand            String?
+  imageUrl         String?
+  websiteUrl       String?
+  location         String?
+  status           ListingStatus @default(ACTIVE)
+  moderationReason String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  category  Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  reviews   Review[]
+
+  @@unique([categoryId, slug])
+  @@unique([categoryId, normalizedName])
+  @@index([categoryId])
+  @@index([createdById])
+  @@index([status])
+  @@index([name])
+  @@index([createdAt])
+  @@map("listings")
+}
+
+// ──────────────────────────────────────────────────────────
+// RatingCriterion — per-category rating dimensions
+// ──────────────────────────────────────────────────────────
+
+model RatingCriterion {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId   String   @db.Uuid
+  name         String
+  description  String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  reviewRatings ReviewRating[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId])
+  @@index([isActive])
+  @@map("rating_criteria")
+}
+
+// ──────────────────────────────────────────────────────────
+// Review — one per user per listing
+// ──────────────────────────────────────────────────────────
+
+model Review {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String       @db.Uuid
+  listingId        String       @db.Uuid
+  title            String?
+  content          String
+  overallRating    Decimal      @db.Decimal(3, 2) // e.g. 4.25
+  status           ReviewStatus @default(VISIBLE)
+  moderationReason String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  listing Listing        @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  ratings ReviewRating[]
+
+  @@unique([userId, listingId])
+  @@index([listingId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("reviews")
+}
+
+// ──────────────────────────────────────────────────────────
+// ReviewRating — individual criterion scores
+// ──────────────────────────────────────────────────────────
+
+model ReviewRating {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reviewId    String @db.Uuid
+  criterionId String @db.Uuid
+  score       Int // 1–5, validated in application
+
+  review    Review          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  criterion RatingCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+
+  @@unique([reviewId, criterionId])
+  @@index([reviewId])
+  @@index([criterionId])
+  @@map("review_ratings")
+}

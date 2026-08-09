@@ -1,0 +1,38 @@
+{
+  "name": "rateit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RateIt — Community-driven rating and review platform",
+  "scripts": {
+    "build:packages": "pnpm --filter @rateit/shared run build && pnpm --filter @rateit/database run build",
+    "dev:api": "pnpm --filter @rateit/api run start:dev",
+    "dev:web": "pnpm --filter @rateit/web run dev",
+    "dev": "pnpm run build:packages && concurrently -k -n \"api,web\" -c \"cyan,magenta\" \"pnpm dev:api\" \"pnpm dev:web\"",
+    "build:api": "pnpm --filter @rateit/api run build",
+    "build:web": "pnpm --filter @rateit/web run build",
+    "build": "pnpm run build:api && pnpm run build:web",
+    "lint": "pnpm -r run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm --filter @rateit/api run test",
+    "test:watch": "pnpm --filter @rateit/api run test:watch",
+    "db:generate": "pnpm --filter @rateit/database run generate",
+    "db:migrate": "pnpm --filter @rateit/database run migrate",
+    "db:migrate:dev": "pnpm --filter @rateit/database run migrate:dev",
+    "db:push": "pnpm --filter @rateit/database run push",
+    "db:seed": "pnpm --filter @rateit/database run seed",
+    "db:studio": "pnpm --filter @rateit/database run studio",
+    "postinstall": "pnpm run db:generate"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.2",
+    "concurrently": "9.1.2",
+    "prettier": "3.5.3",
+    "typescript": "5.7.3"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.27.0"
+}
