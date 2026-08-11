@@ -1,6 +1,6 @@
 # RateIt — Community-Driven Rating & Review Platform
 
-RateIt is a university project full-stack platform where users create listings for movies, hotels, restaurants, shops, and technology products, and other users rate and review them using category-specific criteria.
+RateIt is a full-stack platform where users create listings for movies, hotels, restaurants, shops, and technology products, and other users rate and review them using category-specific criteria.
 
 ---
 
