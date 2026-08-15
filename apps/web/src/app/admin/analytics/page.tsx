@@ -42,8 +42,8 @@ export default function AdminAnalyticsPage() {
         ))}
       </div>
 
-      {/* Time Series */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+      {/* Time Series & Rating Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
         <div className="card">
           <h3 className="font-semibold text-text-primary mb-4">Listings Over Time</h3>
           {analytics?.listingsOverTime?.length === 0 ? (
@@ -54,7 +54,7 @@ export default function AdminAnalyticsPage() {
                 <div key={item.month} className="flex items-center justify-between">
                   <span className="text-sm text-text-secondary">{item.month}</span>
                   <div className="flex items-center gap-2">
-                    <div className="w-32 h-2 bg-surface rounded-full overflow-hidden">
+                    <div className="w-28 h-2 bg-surface rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary rounded-full"
                         style={{
@@ -62,7 +62,7 @@ export default function AdminAnalyticsPage() {
                         }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-text-primary w-8 text-right">
+                    <span className="text-sm font-medium text-text-primary w-8 text-right font-mono">
                       {item.count}
                     </span>
                   </div>
@@ -82,15 +82,15 @@ export default function AdminAnalyticsPage() {
                 <div key={item.month} className="flex items-center justify-between">
                   <span className="text-sm text-text-secondary">{item.month}</span>
                   <div className="flex items-center gap-2">
-                    <div className="w-32 h-2 bg-surface rounded-full overflow-hidden">
+                    <div className="w-28 h-2 bg-surface rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-star rounded-full"
+                        className="h-full bg-accent-blue rounded-full"
                         style={{
                           width: `${Math.min(100, (item.count / Math.max(...analytics.reviewsOverTime.map((i: any) => i.count), 1)) * 100)}%`,
                         }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-text-primary w-8 text-right">
+                    <span className="text-sm font-medium text-text-primary w-8 text-right font-mono">
                       {item.count}
                     </span>
                   </div>
@@ -98,6 +98,35 @@ export default function AdminAnalyticsPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Global Rating Distribution */}
+        <div className="card">
+          <h3 className="font-semibold text-text-primary mb-4">Rating Distribution</h3>
+          <div className="space-y-2.5">
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count = analytics?.ratingDistribution?.[star] || 0;
+              const total = analytics?.totalReviews || 0;
+              const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+
+              return (
+                <div key={star} className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-text-secondary w-8">{star} ★</span>
+                  <div className="flex items-center gap-2 flex-1 max-w-[140px] mx-2">
+                    <div className="w-full h-2 bg-surface rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-star rounded-full transition-all duration-500"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className="text-xs text-text-muted w-14 text-right font-mono">
+                    {count} ({percentage}%)
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

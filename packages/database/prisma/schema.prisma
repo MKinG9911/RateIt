@@ -42,6 +42,11 @@ enum ReviewStatus {
   REMOVED
 }
 
+enum VoteType {
+  HELPFUL
+  UNHELPFUL
+}
+
 // ──────────────────────────────────────────────────────────
 // User — synced from Supabase Auth
 // ──────────────────────────────────────────────────────────
@@ -51,13 +56,15 @@ model User {
   email       String     @unique
   username    String?    @unique
   displayName String?
+  avatarUrl   String?
   role        UserRole   @default(USER)
   status      UserStatus @default(ACTIVE)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  listings Listing[]
-  reviews  Review[]
+  listings    Listing[]
+  reviews     Review[]
+  reviewVotes ReviewVote[]
 
   @@index([role])
   @@index([status])
@@ -70,6 +77,7 @@ model User {
 
 model Category {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId    String?  @db.Uuid
   name        String   @unique
   slug        String   @unique
   description String?
@@ -77,9 +85,12 @@ model Category {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  parent         Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children       Category[]        @relation("CategoryHierarchy")
   listings       Listing[]
   ratingCriteria RatingCriterion[]
 
+  @@index([parentId])
   @@index([isActive])
   @@map("categories")
 }
@@ -152,6 +163,7 @@ model Review {
   listingId        String       @db.Uuid
   title            String?
   content          String
+  images           String[]     @default([])
   overallRating    Decimal      @db.Decimal(3, 2) // e.g. 4.25
   status           ReviewStatus @default(VISIBLE)
   moderationReason String?
@@ -161,6 +173,7 @@ model Review {
   user    User           @relation(fields: [userId], references: [id], onDelete: Restrict)
   listing Listing        @relation(fields: [listingId], references: [id], onDelete: Restrict)
   ratings ReviewRating[]
+  votes   ReviewVote[]
 
   @@unique([userId, listingId])
   @@index([listingId])
@@ -187,4 +200,24 @@ model ReviewRating {
   @@index([reviewId])
   @@index([criterionId])
   @@map("review_ratings")
+}
+
+// ──────────────────────────────────────────────────────────
+// ReviewVote — user helpful/unhelpful votes on reviews
+// ──────────────────────────────────────────────────────────
+
+model ReviewVote {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reviewId  String   @db.Uuid
+  userId    String   @db.Uuid
+  voteType  VoteType @default(HELPFUL)
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@index([reviewId])
+  @@index([userId])
+  @@map("review_votes")
 }

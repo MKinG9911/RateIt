@@ -17,6 +17,7 @@
     "migrate:dev": "prisma migrate dev",
     "push": "prisma db push",
     "seed": "tsx src/seed.ts",
+    "storage:rls": "tsx src/apply-storage-rls.ts",
     "studio": "prisma studio",
     "build": "tsc",
     "typecheck": "tsc --noEmit",

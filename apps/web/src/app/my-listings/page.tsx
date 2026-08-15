@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 import { Plus, Edit3, Trash2, Eye } from 'lucide-react';
 
 export default function MyListingsPage() {
-  const { appUser } = useAuth();
+  const { appUser, loading: authLoading } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -23,8 +23,29 @@ export default function MyListingsPage() {
   };
 
   useEffect(() => {
-    fetchListings();
-  }, []);
+    if (!authLoading && appUser?.role === 'ADMIN') {
+      fetchListings();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [appUser, authLoading]);
+
+  if (!authLoading && appUser?.role !== 'ADMIN') {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-12">
+        <EmptyState
+          icon="alert"
+          title="Admin Access Only"
+          description="Only administrators can manage and create product listings. You can browse categories and review existing listings!"
+          action={
+            <Link href="/" className="btn-primary">
+              Explore Listings
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
 
   const handleDelete = async () => {
     if (!deleteId) return;

@@ -174,20 +174,41 @@ export class ListingsService {
     limit: number;
     categoryId?: string;
     categorySlug?: string;
+    subcategoryId?: string;
     search?: string;
     sort?: string;
+    minRating?: number;
   }) {
-    const { page, limit, categoryId, categorySlug, search, sort } = params;
+    const { page, limit, categoryId, categorySlug, subcategoryId, search, sort, minRating } =
+      params;
     const where: Prisma.ListingWhereInput = {
       status: 'ACTIVE',
     };
 
-    if (categoryId) {
-      where.categoryId = categoryId;
-    }
-
-    if (categorySlug) {
-      where.category = { slug: categorySlug };
+    if (subcategoryId) {
+      where.categoryId = subcategoryId;
+    } else if (categorySlug) {
+      const category = await this.prisma.category.findUnique({
+        where: { slug: categorySlug },
+        include: { children: { select: { id: true } } },
+      });
+      if (category) {
+        const categoryIds = [category.id, ...(category.children?.map((c) => c.id) || [])];
+        where.categoryId = { in: categoryIds };
+      } else {
+        where.category = { slug: categorySlug };
+      }
+    } else if (categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: categoryId },
+        include: { children: { select: { id: true } } },
+      });
+      if (category && category.children?.length > 0) {
+        const categoryIds = [category.id, ...category.children.map((c) => c.id)];
+        where.categoryId = { in: categoryIds };
+      } else {
+        where.categoryId = categoryId;
+      }
     }
 
     if (search) {
@@ -202,24 +223,27 @@ export class ListingsService {
     if (sort === 'name') orderBy = { name: 'asc' };
     if (sort === 'oldest') orderBy = { createdAt: 'asc' };
 
-    const [items, total] = await Promise.all([
-      this.prisma.listing.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy,
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          createdBy: { select: { id: true, displayName: true, username: true } },
-          _count: { select: { reviews: { where: { status: 'VISIBLE' } } } },
+    const rawListings = await this.prisma.listing.findMany({
+      where,
+      orderBy,
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            parentId: true,
+            parent: { select: { id: true, name: true, slug: true } },
+          },
         },
-      }),
-      this.prisma.listing.count({ where }),
-    ]);
+        createdBy: { select: { id: true, displayName: true, username: true } },
+        _count: { select: { reviews: { where: { status: 'VISIBLE' } } } },
+      },
+    });
 
     // Calculate average ratings for each listing
-    const itemsWithStats = await Promise.all(
-      items.map(async (item) => {
+    let itemsWithStats = await Promise.all(
+      rawListings.map(async (item) => {
         const stats = await this.prisma.review.aggregate({
           where: { listingId: item.id, status: 'VISIBLE' },
           _avg: { overallRating: true },
@@ -232,8 +256,25 @@ export class ListingsService {
       }),
     );
 
+    // Apply minRating filter if specified
+    if (minRating && minRating > 0) {
+      itemsWithStats = itemsWithStats.filter(
+        (item) => item.averageRating !== null && item.averageRating >= minRating,
+      );
+    }
+
+    // Apply custom sorting
+    if (sort === 'rating') {
+      itemsWithStats.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+    } else if (sort === 'reviews') {
+      itemsWithStats.sort((a, b) => b.reviewCount - a.reviewCount);
+    }
+
+    const total = itemsWithStats.length;
+    const paginatedItems = itemsWithStats.slice((page - 1) * limit, page * limit);
+
     return {
-      items: itemsWithStats,
+      items: paginatedItems,
       total,
       page,
       limit,
@@ -253,6 +294,14 @@ export class ListingsService {
             id: true,
             name: true,
             slug: true,
+            parentId: true,
+            parent: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
             ratingCriteria: {
               where: { isActive: true },
               orderBy: { displayOrder: 'asc' },
@@ -273,7 +322,7 @@ export class ListingsService {
         _avg: { overallRating: true },
         _count: true,
       }),
-      this.getListingCriterionAverages(listing.id),
+      this.getListingCriterionAverages(listing.id, listing.categoryId),
       this.getRatingDistribution(listing.id),
     ]);
 
@@ -343,35 +392,32 @@ export class ListingsService {
 
   // ─── Helpers ──────────────────────────────────────────
 
-  private async getListingCriterionAverages(listingId: string) {
+  private async getListingCriterionAverages(listingId: string, categoryId: string) {
+    const activeCriteria = await this.prisma.ratingCriterion.findMany({
+      where: { categoryId, isActive: true },
+      orderBy: { displayOrder: 'asc' },
+    });
+
     const results = await this.prisma.reviewRating.groupBy({
       by: ['criterionId'],
       where: {
         review: { listingId, status: 'VISIBLE' },
+        criterionId: { in: activeCriteria.map((c) => c.id) },
       },
       _avg: { score: true },
       _count: true,
     });
 
-    // Enrich with criterion details
-    const criteria = await this.prisma.ratingCriterion.findMany({
-      where: {
-        id: { in: results.map((r) => r.criterionId) },
-      },
+    return activeCriteria.map((criterion) => {
+      const found = results.find((r) => r.criterionId === criterion.id);
+      return {
+        criterionId: criterion.id,
+        criterionName: criterion.name,
+        displayOrder: criterion.displayOrder,
+        average: found?._avg?.score ? Number(found._avg.score) : 0,
+        count: found?._count || 0,
+      };
     });
-
-    return results
-      .map((r) => {
-        const criterion = criteria.find((c) => c.id === r.criterionId);
-        return {
-          criterionId: r.criterionId,
-          criterionName: criterion?.name || 'Unknown',
-          displayOrder: criterion?.displayOrder || 0,
-          average: r._avg.score ? Number(r._avg.score) : 0,
-          count: r._count,
-        };
-      })
-      .sort((a, b) => a.displayOrder - b.displayOrder);
   }
 
   private async getRatingDistribution(listingId: string) {

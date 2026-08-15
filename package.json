@@ -21,6 +21,7 @@
     "db:migrate:dev": "pnpm --filter @rateit/database run migrate:dev",
     "db:push": "pnpm --filter @rateit/database run push",
     "db:seed": "pnpm --filter @rateit/database run seed",
+    "db:storage-rls": "pnpm --filter @rateit/database run storage:rls",
     "db:studio": "pnpm --filter @rateit/database run studio",
     "postinstall": "pnpm run db:generate"
   },

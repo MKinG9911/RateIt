@@ -12,6 +12,8 @@ import {
 import { ListingsService } from './listings.service';
 import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import { ActiveUserGuard } from '../auth/guards/active-user.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { User } from '@rateit/database';
@@ -35,29 +37,35 @@ export class ListingsController {
     @Query('limit') limit = 12,
     @Query('categoryId') categoryId?: string,
     @Query('categorySlug') categorySlug?: string,
+    @Query('subcategoryId') subcategoryId?: string,
     @Query('search') search?: string,
     @Query('sort') sort?: string,
+    @Query('minRating') minRating?: string,
   ) {
     const result = await this.listingsService.findAll({
       page: Number(page),
       limit: Math.min(Number(limit), 50),
       categoryId,
       categorySlug,
+      subcategoryId,
       search,
       sort,
+      minRating: minRating ? Number(minRating) : undefined,
     });
     return { success: true, data: result };
   }
 
   @Get('check-duplicate')
-  @UseGuards(ActiveUserGuard)
+  @UseGuards(ActiveUserGuard, RolesGuard)
+  @Roles('ADMIN')
   async checkDuplicate(@Query('categoryId') categoryId: string, @Query('name') name: string) {
     const matches = await this.listingsService.checkDuplicate(categoryId, name);
     return { success: true, data: { matches } };
   }
 
   @Get('my')
-  @UseGuards(ActiveUserGuard)
+  @UseGuards(ActiveUserGuard, RolesGuard)
+  @Roles('ADMIN')
   async findMine(@CurrentUser() user: User, @Query('page') page = 1, @Query('limit') limit = 12) {
     const result = await this.listingsService.findByUser(
       user.id,
@@ -75,7 +83,8 @@ export class ListingsController {
   }
 
   @Post()
-  @UseGuards(ActiveUserGuard)
+  @UseGuards(ActiveUserGuard, RolesGuard)
+  @Roles('ADMIN')
   async create(
     @CurrentUser() user: User,
     @Body(new ZodValidationPipe(createListingSchema)) data: CreateListingInput,
@@ -85,7 +94,8 @@ export class ListingsController {
   }
 
   @Patch(':id')
-  @UseGuards(ActiveUserGuard)
+  @UseGuards(ActiveUserGuard, RolesGuard)
+  @Roles('ADMIN')
   async update(
     @Param('id') id: string,
     @CurrentUser() user: User,
@@ -96,7 +106,8 @@ export class ListingsController {
   }
 
   @Delete(':id')
-  @UseGuards(ActiveUserGuard)
+  @UseGuards(ActiveUserGuard, RolesGuard)
+  @Roles('ADMIN')
   async delete(@Param('id') id: string, @CurrentUser() user: User) {
     const result = await this.listingsService.delete(id, user.id);
     return result;

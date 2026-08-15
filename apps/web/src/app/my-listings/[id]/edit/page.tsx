@@ -3,14 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import toast from 'react-hot-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
+import ImageUploader from '@/components/image-uploader';
 
 export default function EditListingPage() {
   const params = useParams();
   const router = useRouter();
   const listingId = params.id as string;
+  const { appUser, loading: authLoading } = useAuth();
 
   const [listing, setListing] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
@@ -55,6 +58,23 @@ export default function EditListingPage() {
   }, [listingId]);
 
   const hasReviews = listing?._count?.reviews > 0;
+
+  if (!authLoading && appUser?.role !== 'ADMIN') {
+    return (
+      <div className="card text-center py-12 space-y-4 max-w-2xl mx-auto my-12">
+        <div className="p-3 bg-accent-red/10 border border-accent-red/20 rounded-2xl w-fit mx-auto text-accent-red">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-text-primary">Admin Access Required</h2>
+        <p className="text-sm text-text-secondary max-w-md mx-auto">
+          Only platform administrators are permitted to edit listings.
+        </p>
+        <Link href="/" className="btn-primary inline-block">
+          Return to Home
+        </Link>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,18 +208,7 @@ export default function EditListingPage() {
             </div>
           </div>
 
-          <div>
-            <label htmlFor="imageUrl" className="label">
-              Image URL
-            </label>
-            <input
-              id="imageUrl"
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className="input"
-            />
-          </div>
+          <ImageUploader value={imageUrl} onChange={setImageUrl} />
 
           <div>
             <label htmlFor="websiteUrl" className="label">

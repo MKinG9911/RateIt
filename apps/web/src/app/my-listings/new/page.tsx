@@ -3,14 +3,17 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import toast from 'react-hot-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
+import ImageUploader from '@/components/image-uploader';
 
 function NewListingForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedCategoryId = searchParams.get('categoryId') || '';
+  const { appUser, loading: authLoading } = useAuth();
 
   const [categories, setCategories] = useState<any[]>([]);
   const [categoryId, setCategoryId] = useState(preselectedCategoryId);
@@ -44,6 +47,23 @@ function NewListingForm() {
     return () => clearTimeout(timer);
   }, [categoryId, name]);
 
+  if (!authLoading && appUser?.role !== 'ADMIN') {
+    return (
+      <div className="card text-center py-12 space-y-4">
+        <div className="p-3 bg-accent-red/10 border border-accent-red/20 rounded-2xl w-fit mx-auto text-accent-red">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-text-primary">Admin Access Required</h2>
+        <p className="text-sm text-text-secondary max-w-md mx-auto">
+          Only platform administrators are permitted to create new product listings. Users can browse, rate, and review existing listings.
+        </p>
+        <Link href="/" className="btn-primary inline-block">
+          Return to Home
+        </Link>
+      </div>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -63,7 +83,7 @@ function NewListingForm() {
 
     if (res.success) {
       toast.success('Listing created!');
-      router.push('/my-listings');
+      router.push('/admin/listings');
     } else {
       toast.error(res.error || 'Failed to create listing');
     }
@@ -73,10 +93,10 @@ function NewListingForm() {
   return (
     <div>
       <Link
-        href="/my-listings"
+        href="/admin/listings"
         className="flex items-center gap-2 text-text-secondary hover:text-text-primary mb-6 text-sm"
       >
-        <ArrowLeft className="w-4 h-4" /> Back to My Listings
+        <ArrowLeft className="w-4 h-4" /> Back to Listings Management
       </Link>
 
       <h1 className="text-3xl font-bold text-text-primary mb-8">Create New Listing</h1>
@@ -94,12 +114,22 @@ function NewListingForm() {
               className="input"
               required
             >
-              <option value="">Select a category</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
+              <option value="">Select a category or subcategory</option>
+              {categories.map((parent) =>
+                parent.children && parent.children.length > 0 ? (
+                  <optgroup key={parent.id} label={parent.name}>
+                    {parent.children.map((sub: any) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : (
+                  <option key={parent.id} value={parent.id}>
+                    {parent.name}
+                  </option>
+                ),
+              )}
             </select>
           </div>
 
@@ -176,19 +206,7 @@ function NewListingForm() {
             </div>
           </div>
 
-          <div>
-            <label htmlFor="imageUrl" className="label">
-              Image URL
-            </label>
-            <input
-              id="imageUrl"
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className="input"
-              placeholder="https://..."
-            />
-          </div>
+          <ImageUploader value={imageUrl} onChange={setImageUrl} />
 
           <div>
             <label htmlFor="websiteUrl" className="label">

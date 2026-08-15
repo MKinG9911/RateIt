@@ -15,6 +15,7 @@ interface AppUser {
   email: string;
   username: string | null;
   displayName: string | null;
+  avatarUrl: string | null;
   role: 'USER' | 'ADMIN';
   status: 'ACTIVE' | 'SUSPENDED';
 }

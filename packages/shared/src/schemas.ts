@@ -42,6 +42,7 @@ export const updateProfileSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, hyphens, and underscores')
     .optional(),
   displayName: z.string().min(1).max(100).optional(),
+  avatarUrl: z.string().url().optional().nullable().or(z.literal('')),
 });
 
 // ──────────────────────────────────────────────────────────
@@ -85,13 +86,19 @@ export const criterionScoreSchema = z.object({
 export const createReviewSchema = z.object({
   title: z.string().max(200).optional(),
   content: z.string().min(10, 'Review must be at least 10 characters').max(5000),
+  images: z.array(z.string()).max(5).optional().default([]),
   ratings: z.array(criterionScoreSchema).min(1, 'At least one criterion rating is required'),
 });
 
 export const updateReviewSchema = z.object({
   title: z.string().max(200).optional(),
   content: z.string().min(10).max(5000).optional(),
+  images: z.array(z.string()).max(5).optional(),
   ratings: z.array(criterionScoreSchema).min(1).optional(),
+});
+
+export const voteReviewSchema = z.object({
+  voteType: z.enum(['HELPFUL', 'UNHELPFUL']),
 });
 
 // ──────────────────────────────────────────────────────────
@@ -123,6 +130,34 @@ export const adminUpdateListingSchema = z.object({
   location: z.string().max(300).optional(),
 });
 
+export const createCategorySchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  description: z.string().max(1000).optional(),
+  parentId: z.string().uuid().optional().nullable(),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const updateCategorySchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(1000).optional().nullable(),
+  parentId: z.string().uuid().optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+
+export const createCriterionSchema = z.object({
+  name: z.string().min(1, 'Criterion name is required').max(100),
+  description: z.string().max(500).optional(),
+  displayOrder: z.number().int().min(0).optional().default(0),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const updateCriterionSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional().nullable(),
+  displayOrder: z.number().int().min(0).optional(),
+  isActive: z.boolean().optional(),
+});
+
 // ──────────────────────────────────────────────────────────
 // Pagination Schema
 // ──────────────────────────────────────────────────────────
@@ -147,8 +182,13 @@ export type CheckDuplicateInput = z.infer<typeof checkDuplicateSchema>;
 export type CriterionScoreInput = z.infer<typeof criterionScoreSchema>;
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 export type UpdateReviewInput = z.infer<typeof updateReviewSchema>;
+export type VoteReviewInput = z.infer<typeof voteReviewSchema>;
 export type ModerateListingInput = z.infer<typeof moderateListingSchema>;
 export type ModerateReviewInput = z.infer<typeof moderateReviewSchema>;
 export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>;
 export type AdminUpdateListingInput = z.infer<typeof adminUpdateListingSchema>;
+export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
+export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
+export type CreateCriterionInput = z.infer<typeof createCriterionSchema>;
+export type UpdateCriterionInput = z.infer<typeof updateCriterionSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;

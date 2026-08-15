@@ -5,19 +5,39 @@ import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { User, Mail, Shield, AtSign, UserCheck, HelpCircle } from 'lucide-react';
+import { AvatarUploader } from '@/components/avatar-uploader';
+import { UserAvatar } from '@/components/user-avatar';
 
 export default function ProfilePage() {
   const { appUser, supabaseUser, loading, refreshUser } = useAuth();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (appUser) {
       setUsername(appUser.username || '');
       setDisplayName(appUser.displayName || '');
+      setAvatarUrl(appUser.avatarUrl || '');
     }
   }, [appUser]);
+
+  const handleAvatarChange = async (newUrl: string) => {
+    setAvatarUrl(newUrl);
+    // Automatically persist avatar change to backend and refresh globally
+    try {
+      const res = await api('/users/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ avatarUrl: newUrl || '' }),
+      });
+      if (res.success) {
+        await refreshUser();
+      }
+    } catch (e) {
+      console.warn('Auto-save avatar error:', e);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,11 +47,12 @@ export default function ProfilePage() {
       body: JSON.stringify({
         username: username || undefined,
         displayName: displayName || undefined,
+        avatarUrl: avatarUrl || '',
       }),
     });
     if (res.success) {
       toast.success('Profile updated successfully!');
-      refreshUser();
+      await refreshUser();
     } else {
       toast.error(res.error || 'Failed to update profile');
     }
@@ -49,14 +70,12 @@ export default function ProfilePage() {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-3xl font-bold text-text-primary mb-2">Profile Settings</h1>
-      <p className="text-text-secondary mb-8">Manage your account information and identity</p>
+      <p className="text-text-secondary mb-8">Manage your account identity, profile photo, and public details</p>
 
       {/* User Info Card */}
       <div className="card mb-8">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center border border-primary/30">
-            <User className="w-8 h-8 text-primary" />
-          </div>
+          <UserAvatar user={appUser} src={avatarUrl} size="lg" />
           <div>
             <h2 className="text-xl font-bold text-text-primary">
               {appUser?.displayName || appUser?.email || supabaseUser?.email}
@@ -74,8 +93,11 @@ export default function ProfilePage() {
         </div>
 
         {/* Profile Edit Form */}
-        <form onSubmit={handleSubmit} className="space-y-6 pt-4 border-t border-surface-border">
-          <div>
+        <form onSubmit={handleSubmit} className="space-y-6 pt-6 border-t border-surface-border">
+          {/* Avatar Uploader with Cropper & Storage Cleanup */}
+          <AvatarUploader value={avatarUrl} onChange={handleAvatarChange} user={appUser} />
+
+          <div className="pt-2">
             <label htmlFor="username" className="label flex items-center gap-2">
               <AtSign className="w-4 h-4 text-primary" /> Username
             </label>

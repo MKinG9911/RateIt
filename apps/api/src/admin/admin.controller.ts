@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { UsersService } from '../users/users.service';
 import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
@@ -9,10 +9,18 @@ import {
   moderateReviewSchema,
   adminUpdateListingSchema,
   adminUpdateUserSchema,
+  createCategorySchema,
+  updateCategorySchema,
+  createCriterionSchema,
+  updateCriterionSchema,
   ModerateListingInput,
   ModerateReviewInput,
   AdminUpdateListingInput,
   AdminUpdateUserInput,
+  CreateCategoryInput,
+  UpdateCategoryInput,
+  CreateCriterionInput,
+  UpdateCriterionInput,
 } from '@rateit/shared';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 
@@ -133,19 +141,33 @@ export class AdminController {
     return { success: true, data: categories };
   }
 
+  @Post('categories')
+  async createCategory(
+    @Body(new ZodValidationPipe(createCategorySchema)) data: CreateCategoryInput,
+  ) {
+    const category = await this.adminService.createCategory(data);
+    return { success: true, data: category };
+  }
+
   @Patch('categories/:id')
   async updateCategory(
     @Param('id') id: string,
-    @Body() data: { name?: string; description?: string; isActive?: boolean },
+    @Body(new ZodValidationPipe(updateCategorySchema)) data: UpdateCategoryInput,
   ) {
     const category = await this.adminService.updateCategory(id, data);
+    return { success: true, data: category };
+  }
+
+  @Delete('categories/:id')
+  async deleteCategory(@Param('id') id: string) {
+    const category = await this.adminService.deleteCategory(id);
     return { success: true, data: category };
   }
 
   @Post('categories/:categoryId/criteria')
   async createCriterion(
     @Param('categoryId') categoryId: string,
-    @Body() data: { name: string; description?: string; displayOrder?: number },
+    @Body(new ZodValidationPipe(createCriterionSchema)) data: CreateCriterionInput,
   ) {
     const criterion = await this.adminService.createCriterion({
       categoryId,
@@ -157,15 +179,15 @@ export class AdminController {
   @Patch('criteria/:id')
   async updateCriterion(
     @Param('id') id: string,
-    @Body()
-    data: {
-      name?: string;
-      description?: string;
-      displayOrder?: number;
-      isActive?: boolean;
-    },
+    @Body(new ZodValidationPipe(updateCriterionSchema)) data: UpdateCriterionInput,
   ) {
     const criterion = await this.adminService.updateCriterion(id, data);
+    return { success: true, data: criterion };
+  }
+
+  @Delete('criteria/:id')
+  async deleteCriterion(@Param('id') id: string) {
+    const criterion = await this.adminService.deleteCriterion(id);
     return { success: true, data: criterion };
   }
 

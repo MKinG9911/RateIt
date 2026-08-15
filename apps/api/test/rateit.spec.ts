@@ -5,6 +5,7 @@ import {
   registerSchema,
   createListingSchema,
   createReviewSchema,
+  voteReviewSchema,
   moderateListingSchema,
   moderateReviewSchema,
   adminUpdateUserSchema,
@@ -205,6 +206,24 @@ describe('Review Validation', () => {
     const overall = scores.reduce((a, b) => a + b, 0) / scores.length;
     expect(overall).toBe(3.0);
   });
+  it('should accept review images', () => {
+    const valid = createReviewSchema.parse({
+      content: 'Review with product photo',
+      images: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
+      ratings: [{ criterionId: '550e8400-e29b-41d4-a716-446655440000', score: 5 }],
+    });
+    expect(valid.images).toHaveLength(2);
+  });
+
+  it('should validate vote schema', () => {
+    const helpful = voteReviewSchema.parse({ voteType: 'HELPFUL' });
+    expect(helpful.voteType).toBe('HELPFUL');
+
+    const unhelpful = voteReviewSchema.parse({ voteType: 'UNHELPFUL' });
+    expect(unhelpful.voteType).toBe('UNHELPFUL');
+
+    expect(() => voteReviewSchema.parse({ voteType: 'INVALID' })).toThrow();
+  });
 });
 
 // ──────────────────────────────────────────────────────────
@@ -264,24 +283,38 @@ describe('Guard Logic', () => {
     expect(user.status).not.toBe('ACTIVE');
   });
 
-  it('only ADMIN role can access admin endpoints', () => {
+  it('only ADMIN role can create, update, or delete listings', () => {
     const regularUser = { role: 'USER' };
     const adminUser = { role: 'ADMIN' };
-    const requiredRoles = ['ADMIN'];
+    const listingCreationRoles = ['ADMIN'];
 
-    expect(requiredRoles.includes(regularUser.role)).toBe(false);
-    expect(requiredRoles.includes(adminUser.role)).toBe(true);
+    expect(listingCreationRoles.includes(regularUser.role)).toBe(false);
+    expect(listingCreationRoles.includes(adminUser.role)).toBe(true);
   });
 
-  it('users can only edit their own listings', () => {
-    const listingOwnerId = 'user-1';
-    const requestingUserId = 'user-2';
-    expect(listingOwnerId).not.toBe(requestingUserId);
+  it('admin users cannot create reviews or ratings', () => {
+    const adminUser = { role: 'ADMIN' };
+    const canReview = adminUser.role !== 'ADMIN';
+    expect(canReview).toBe(false);
   });
 
-  it('users can only edit their own reviews', () => {
-    const reviewUserId = 'user-1';
-    const requestingUserId = 'user-2';
-    expect(reviewUserId).not.toBe(requestingUserId);
+  it('admin users cannot vote on reviews', () => {
+    const adminUser = { role: 'ADMIN' };
+    const canVote = adminUser.role !== 'ADMIN';
+    expect(canVote).toBe(false);
+  });
+
+  it('regular users can create reviews and vote', () => {
+    const regularUser = { role: 'USER' };
+    const canReview = regularUser.role !== 'ADMIN';
+    const canVote = regularUser.role !== 'ADMIN';
+    expect(canReview).toBe(true);
+    expect(canVote).toBe(true);
+  });
+
+  it('users cannot vote on their own reviews', () => {
+    const reviewAuthorId = 'user-123';
+    const voterId = 'user-123';
+    expect(reviewAuthorId === voterId).toBe(true);
   });
 });

@@ -28,9 +28,14 @@ export class UsersService {
       }
     }
 
+    const updatePayload: Prisma.UserUpdateInput = {};
+    if (data.username !== undefined) updatePayload.username = data.username || null;
+    if (data.displayName !== undefined) updatePayload.displayName = data.displayName || null;
+    if (data.avatarUrl !== undefined) updatePayload.avatarUrl = data.avatarUrl || null;
+
     return this.prisma.user.update({
       where: { id: userId },
-      data,
+      data: updatePayload,
     });
   }
 

@@ -88,6 +88,7 @@ export class ReviewsService {
           listingId,
           title: data.title,
           content: data.content,
+          images: data.images || [],
           overallRating: new Prisma.Decimal(overallRating.toFixed(2)),
           status: 'VISIBLE',
         },
@@ -109,7 +110,7 @@ export class ReviewsService {
               criterion: { select: { id: true, name: true, displayOrder: true } },
             },
           },
-          user: { select: { id: true, displayName: true, username: true } },
+          user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
         },
       });
     });
@@ -143,6 +144,7 @@ export class ReviewsService {
       const updateData: Prisma.ReviewUpdateInput = {};
       if (data.title !== undefined) updateData.title = data.title;
       if (data.content !== undefined) updateData.content = data.content;
+      if (data.images !== undefined) updateData.images = data.images;
 
       if (data.ratings && data.ratings.length > 0) {
         // Validate criteria
@@ -196,7 +198,7 @@ export class ReviewsService {
               criterion: { select: { id: true, name: true, displayOrder: true } },
             },
           },
-          user: { select: { id: true, displayName: true, username: true } },
+          user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
         },
       });
     });
@@ -215,7 +217,7 @@ export class ReviewsService {
       throw new ForbiddenException('You can only delete your own reviews');
     }
 
-    // Cascade will handle ReviewRating deletion
+    // Cascade will handle ReviewRating and ReviewVote deletion
     await this.prisma.review.delete({ where: { id: reviewId } });
     return { success: true, message: 'Review deleted' };
   }
@@ -223,13 +225,13 @@ export class ReviewsService {
   /**
    * Get reviews for a listing (public).
    */
-  async findByListing(listingId: string, page: number, limit: number) {
+  async findByListing(listingId: string, page: number, limit: number, currentUserId?: string) {
     const where = {
       listingId,
       status: 'VISIBLE' as const,
     };
 
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
       this.prisma.review.findMany({
         where,
         skip: (page - 1) * limit,
@@ -241,11 +243,28 @@ export class ReviewsService {
               criterion: { select: { id: true, name: true, displayOrder: true } },
             },
           },
-          user: { select: { id: true, displayName: true, username: true } },
+          user: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
+          votes: true,
         },
       }),
       this.prisma.review.count({ where }),
     ]);
+
+    const items = rawItems.map((review) => {
+      const helpfulCount = review.votes.filter((v) => v.voteType === 'HELPFUL').length;
+      const unhelpfulCount = review.votes.filter((v) => v.voteType === 'UNHELPFUL').length;
+      const userVote = currentUserId
+        ? review.votes.find((v) => v.userId === currentUserId)?.voteType || null
+        : null;
+
+      const { votes, ...rest } = review;
+      return {
+        ...rest,
+        helpfulCount,
+        unhelpfulCount,
+        userVote,
+      };
+    });
 
     return {
       items,
@@ -253,6 +272,73 @@ export class ReviewsService {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Vote on a review (HELPFUL or UNHELPFUL). Toggles off if clicked again.
+   */
+  async vote(reviewId: string, userId: string, voteType: 'HELPFUL' | 'UNHELPFUL') {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+    });
+
+    if (!review || review.status !== 'VISIBLE') {
+      throw new NotFoundException('Review not found or not active');
+    }
+
+    if (review.userId === userId) {
+      throw new BadRequestException('You cannot vote on your own review');
+    }
+
+    const existingVote = await this.prisma.reviewVote.findUnique({
+      where: {
+        userId_reviewId: { userId, reviewId },
+      },
+    });
+
+    let activeUserVote: 'HELPFUL' | 'UNHELPFUL' | null = null;
+
+    if (existingVote) {
+      if (existingVote.voteType === voteType) {
+        // Toggle off
+        await this.prisma.reviewVote.delete({
+          where: { id: existingVote.id },
+        });
+        activeUserVote = null;
+      } else {
+        // Switch vote type
+        await this.prisma.reviewVote.update({
+          where: { id: existingVote.id },
+          data: { voteType },
+        });
+        activeUserVote = voteType;
+      }
+    } else {
+      // Create new vote
+      await this.prisma.reviewVote.create({
+        data: {
+          reviewId,
+          userId,
+          voteType,
+        },
+      });
+      activeUserVote = voteType;
+    }
+
+    // Get updated counts
+    const votes = await this.prisma.reviewVote.findMany({
+      where: { reviewId },
+    });
+
+    const helpfulCount = votes.filter((v) => v.voteType === 'HELPFUL').length;
+    const unhelpfulCount = votes.filter((v) => v.voteType === 'UNHELPFUL').length;
+
+    return {
+      success: true,
+      userVote: activeUserVote,
+      helpfulCount,
+      unhelpfulCount,
     };
   }
 

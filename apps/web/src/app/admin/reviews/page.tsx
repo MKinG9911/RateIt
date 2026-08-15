@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { UserAvatar } from '@/components/user-avatar';
 
 export default function AdminReviewsPage() {
   const [data, setData] = useState<any>(null);
@@ -65,13 +66,16 @@ export default function AdminReviewsPage() {
         <div className="space-y-4">
           {data?.items?.map((review: any) => (
             <div key={review.id} className="card">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="font-medium text-text-primary">{review.listing?.name}</p>
-                  <p className="text-xs text-text-muted">
-                    by {review.user?.email} · Rating: {Number(review.overallRating).toFixed(1)} ·{' '}
-                    {new Date(review.createdAt).toLocaleDateString()}
-                  </p>
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <UserAvatar user={review.user} size="md" />
+                  <div>
+                    <p className="font-bold text-sm text-text-primary">{review.listing?.name}</p>
+                    <p className="text-xs text-text-muted">
+                      by {review.user?.displayName || review.user?.email} · Rating: {Number(review.overallRating).toFixed(1)} ★ ·{' '}
+                      {new Date(review.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
                 <span
                   className={

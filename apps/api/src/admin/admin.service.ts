@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@rateit/database';
+import { generateSlug } from '@rateit/shared';
 
 @Injectable()
 export class AdminService {
@@ -129,7 +130,7 @@ export class AdminService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          user: { select: { id: true, email: true, displayName: true } },
+          user: { select: { id: true, email: true, displayName: true, avatarUrl: true } },
           listing: {
             select: {
               id: true,
@@ -163,27 +164,117 @@ export class AdminService {
   // ─── Category Management ──────────────────────────────────
 
   async findAllCategories() {
-    return this.prisma.category.findMany({
+    const categories = await this.prisma.category.findMany({
+      where: { parentId: null }, // Tree root
       include: {
-        ratingCriteria: { orderBy: { displayOrder: 'asc' } },
-        _count: { select: { listings: true } },
+        children: {
+          include: {
+            ratingCriteria: {
+              orderBy: { displayOrder: 'asc' },
+            },
+            _count: {
+              select: { listings: true },
+            },
+          },
+          orderBy: { name: 'asc' },
+        },
+        ratingCriteria: {
+          orderBy: { displayOrder: 'asc' },
+        },
+        _count: {
+          select: { listings: true },
+        },
       },
       orderBy: { name: 'asc' },
+    });
+
+    return categories.map((parent) => {
+      const directListings = parent._count?.listings || 0;
+      const childrenListings =
+        parent.children?.reduce((sum, child) => sum + (child._count?.listings || 0), 0) || 0;
+      const totalListings = directListings + childrenListings;
+
+      return {
+        ...parent,
+        _count: {
+          ...parent._count,
+          listings: totalListings,
+        },
+      };
+    });
+  }
+
+  async createCategory(data: {
+    name: string;
+    description?: string;
+    parentId?: string | null;
+    isActive?: boolean;
+  }) {
+    const slug = generateSlug(data.name);
+
+    // Check slug uniqueness
+    const existing = await this.prisma.category.findUnique({ where: { slug } });
+    if (existing) {
+      throw new BadRequestException('A category with this name or slug already exists');
+    }
+
+    return this.prisma.category.create({
+      data: {
+        name: data.name,
+        slug,
+        description: data.description || null,
+        parentId: data.parentId || null,
+        isActive: data.isActive ?? true,
+      },
     });
   }
 
   async updateCategory(
     categoryId: string,
-    data: { name?: string; description?: string; isActive?: boolean },
+    data: { name?: string; description?: string | null; parentId?: string | null; isActive?: boolean },
   ) {
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
     });
     if (!category) throw new NotFoundException('Category not found');
 
+    const updatePayload: any = { ...data };
+    if (data.name && data.name !== category.name) {
+      updatePayload.slug = generateSlug(data.name);
+    }
+
     return this.prisma.category.update({
       where: { id: categoryId },
-      data,
+      data: updatePayload,
+    });
+  }
+
+  async deleteCategory(categoryId: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      include: {
+        children: true,
+        _count: { select: { listings: true } },
+      },
+    });
+
+    if (!category) throw new NotFoundException('Category not found');
+
+    if (category.children.length > 0) {
+      throw new BadRequestException('Cannot delete category with subcategories. Remove subcategories first.');
+    }
+
+    if (category._count.listings > 0) {
+      // Soft delete by deactivating if listings exist
+      return this.prisma.category.update({
+        where: { id: categoryId },
+        data: { isActive: false },
+      });
+    }
+
+    // Permanent delete if unused
+    return this.prisma.category.delete({
+      where: { id: categoryId },
     });
   }
 
@@ -192,37 +283,53 @@ export class AdminService {
     name: string;
     description?: string;
     displayOrder?: number;
+    isActive?: boolean;
   }) {
     return this.prisma.ratingCriterion.create({
       data: {
         categoryId: data.categoryId,
         name: data.name,
-        description: data.description,
+        description: data.description || null,
         displayOrder: data.displayOrder || 0,
-        isActive: true,
+        isActive: data.isActive ?? true,
       },
     });
   }
 
   async updateCriterion(
     criterionId: string,
-    data: { name?: string; description?: string; displayOrder?: number; isActive?: boolean },
+    data: { name?: string; description?: string | null; displayOrder?: number; isActive?: boolean },
   ) {
     const criterion = await this.prisma.ratingCriterion.findUnique({
       where: { id: criterionId },
-      include: { _count: { select: { reviewRatings: true } } },
     });
     if (!criterion) throw new NotFoundException('Criterion not found');
-
-    // Prevent deactivating criteria that have been used in reviews
-    // (they can be deactivated but not deleted)
-    if (data.isActive === false && criterion._count.reviewRatings > 0) {
-      // Allowed: deactivation is fine, just won't be used for new reviews
-    }
 
     return this.prisma.ratingCriterion.update({
       where: { id: criterionId },
       data,
+    });
+  }
+
+  async deleteCriterion(criterionId: string) {
+    const criterion = await this.prisma.ratingCriterion.findUnique({
+      where: { id: criterionId },
+      include: { _count: { select: { reviewRatings: true } } },
+    });
+
+    if (!criterion) throw new NotFoundException('Criterion not found');
+
+    if (criterion._count.reviewRatings > 0) {
+      // Soft delete if used in reviews
+      return this.prisma.ratingCriterion.update({
+        where: { id: criterionId },
+        data: { isActive: false },
+      });
+    }
+
+    // Permanent delete if unused
+    return this.prisma.ratingCriterion.delete({
+      where: { id: criterionId },
     });
   }
 
@@ -240,6 +347,7 @@ export class AdminService {
       mostActiveReviewers,
       listingsOverTime,
       reviewsOverTime,
+      ratingDistribution,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.user.count({ where: { status: 'ACTIVE' } }),
@@ -271,6 +379,9 @@ export class AdminService {
 
       // Reviews created over time (last 12 months)
       this.getReviewsOverTime(),
+
+      // Platform Rating Distribution
+      this.getPlatformRatingDistribution(),
     ]);
 
     return {
@@ -289,7 +400,24 @@ export class AdminService {
       mostActiveReviewers,
       listingsOverTime,
       reviewsOverTime,
+      ratingDistribution,
     };
+  }
+
+  private async getPlatformRatingDistribution() {
+    const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const reviews = await this.prisma.review.findMany({
+      where: { status: 'VISIBLE' },
+      select: { overallRating: true },
+    });
+
+    for (const review of reviews) {
+      const rounded = Math.round(Number(review.overallRating));
+      const key = Math.max(1, Math.min(5, rounded));
+      distribution[key] = (distribution[key] || 0) + 1;
+    }
+
+    return distribution;
   }
 
   private async getHighestRatedListings() {

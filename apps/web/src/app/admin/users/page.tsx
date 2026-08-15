@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Shield, ShieldOff } from 'lucide-react';
+import { UserAvatar } from '@/components/user-avatar';
 
 export default function AdminUsersPage() {
   const [data, setData] = useState<any>(null);
@@ -101,7 +102,12 @@ export default function AdminUsersPage() {
                   key={user.id}
                   className="border-b border-surface-border hover:bg-surface-light/50 transition-colors"
                 >
-                  <td className="py-3 px-4 text-sm text-text-primary">{user.email}</td>
+                  <td className="py-3 px-4 text-sm text-text-primary">
+                    <div className="flex items-center gap-2.5">
+                      <UserAvatar user={user} size="sm" />
+                      <span className="font-medium">{user.email}</span>
+                    </div>
+                  </td>
                   <td className="py-3 px-4 text-sm text-text-secondary">{user.username || '—'}</td>
                   <td className="py-3 px-4 text-sm text-text-secondary">
                     {user.displayName || '—'}
