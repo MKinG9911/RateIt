@@ -20,9 +20,20 @@ async function bootstrap() {
   // Security headers
   app.use(helmet());
 
-  // CORS
+  // Flexible CORS configuration for local and cloud production
+  const corsOriginEnv = process.env.API_CORS_ORIGIN || process.env.CORS_ORIGIN || '*';
+  let corsOrigin: boolean | string | string[] | RegExp = true;
+
+  if (corsOriginEnv === '*') {
+    corsOrigin = true;
+  } else if (corsOriginEnv.includes(',')) {
+    corsOrigin = corsOriginEnv.split(',').map((o) => o.trim());
+  } else if (corsOriginEnv) {
+    corsOrigin = corsOriginEnv.trim();
+  }
+
   app.enableCors({
-    origin: process.env.API_CORS_ORIGIN || 'http://localhost:3000',
+    origin: corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -43,9 +54,10 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  const port = process.env.API_PORT || 4000;
-  await app.listen(port);
-  console.log(`🚀 RateIt API running on http://localhost:${port}/api/v1`);
+  // Render uses PORT environment variable; fallback to API_PORT or 4000
+  const port = Number(process.env.PORT || process.env.API_PORT || 4000);
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 RateIt API running on http://0.0.0.0:${port}/api/v1`);
 }
 
 bootstrap();

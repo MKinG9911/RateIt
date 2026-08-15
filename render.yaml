@@ -1,0 +1,27 @@
+# Render Blueprint for RateIt API
+# Deploy via: Render Dashboard -> Blueprints -> Connect Repository
+services:
+  - type: web
+    name: rateit-api
+    runtime: node
+    plan: free
+    buildCommand: pnpm install && pnpm run build:api
+    startCommand: pnpm run start:api
+    healthCheckPath: /api/v1/categories
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_ISSUER
+        sync: false
+      - key: SUPABASE_JWKS_URL
+        sync: false
+      - key: API_CORS_ORIGIN
+        sync: false

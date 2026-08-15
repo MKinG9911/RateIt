@@ -8,9 +8,11 @@
     "dev:api": "pnpm --filter @rateit/api run start:dev",
     "dev:web": "pnpm --filter @rateit/web run dev",
     "dev": "pnpm run build:packages && concurrently -k -n \"api,web\" -c \"cyan,magenta\" \"pnpm dev:api\" \"pnpm dev:web\"",
-    "build:api": "pnpm --filter @rateit/api run build",
-    "build:web": "pnpm --filter @rateit/web run build",
-    "build": "pnpm run build:api && pnpm run build:web",
+    "build:api": "pnpm run build:packages && pnpm --filter @rateit/api run build",
+    "build:web": "pnpm run build:packages && pnpm --filter @rateit/web run build",
+    "build": "pnpm run build:packages && pnpm --filter @rateit/api run build && pnpm --filter @rateit/web run build",
+    "start:api": "pnpm --filter @rateit/api run start",
+    "start:web": "pnpm --filter @rateit/web run start",
     "lint": "pnpm -r run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "typecheck": "pnpm -r run typecheck",
@@ -23,7 +25,7 @@
     "db:seed": "pnpm --filter @rateit/database run seed",
     "db:storage-rls": "pnpm --filter @rateit/database run storage:rls",
     "db:studio": "pnpm --filter @rateit/database run studio",
-    "postinstall": "pnpm run db:generate"
+    "postinstall": "pnpm run db:generate && pnpm run build:packages"
   },
   "devDependencies": {
     "@types/node": "22.15.2",
