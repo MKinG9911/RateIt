@@ -4,13 +4,90 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+:root,
+.dark {
+  --color-bg-rgb: 11 14 20;
+  --color-bg-card-rgb: 20 24 32;
+  --color-bg-elevated-rgb: 26 31 46;
+  --color-bg-hover-rgb: 34 40 56;
+
+  --color-primary-rgb: 139 92 246;
+  --color-primary-hover-rgb: 124 58 237;
+  --color-primary-light-rgb: 167 139 250;
+  --color-primary-dark-rgb: 109 40 217;
+
+  --color-surface-rgb: 30 36 51;
+  --color-surface-light-rgb: 42 49 66;
+  --color-surface-border-rgb: 45 53 72;
+
+  --color-text-primary-rgb: 241 245 249;
+  --color-text-secondary-rgb: 148 163 184;
+  --color-text-muted-rgb: 100 116 139;
+
+  --color-star-rgb: 245 158 11;
+
+  --bg-pattern: url('/brand-bg.png');
+  --bg-pattern-opacity: 0.06;
+  --bg-pattern-blend: screen;
+}
+
+.light {
+  --color-bg-rgb: 255 255 255;
+  /* #FFFFFF */
+  --color-bg-card-rgb: 255 255 255;
+  /* #FFFFFF */
+  --color-bg-elevated-rgb: 248 247 252;
+  /* #F8F7FC */
+  --color-bg-hover-rgb: 243 241 249;
+  /* #F3F1F9 */
+
+  --color-primary-rgb: 124 58 237;
+  /* #7C3AED */
+  --color-primary-hover-rgb: 109 40 217;
+  /* #6D28D9 */
+  --color-primary-light-rgb: 139 92 246;
+  /* #8B5CF6 */
+  --color-primary-dark-rgb: 91 33 182;
+  /* #5B21B6 */
+
+  --color-surface-rgb: 245 243 250;
+  /* #F5F3FA */
+  --color-surface-light-rgb: 238 235 246;
+  /* #EEEBF6 */
+  --color-surface-border-rgb: 226 222 240;
+  /* #E2DEF0 */
+
+  --color-text-primary-rgb: 15 23 42;
+  /* #0F172A */
+  --color-text-secondary-rgb: 71 85 105;
+  /* #475569 */
+  --color-text-muted-rgb: 148 163 184;
+  /* #94A3B8 */
+
+  --color-star-rgb: 245 158 11;
+
+  --bg-pattern: none;
+  --bg-pattern-opacity: 0;
+  --bg-pattern-blend: normal;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
   }
 
   body {
-    @apply bg-background text-text-primary font-sans antialiased;
+    @apply bg-background text-text-primary font-sans antialiased transition-colors duration-200;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-nunito), 'Nunito', system-ui, sans-serif;
+    letter-spacing: -0.015em;
   }
 
   /* Custom scrollbar */
@@ -100,6 +177,6 @@
 
 @layer utilities {
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent-pink;
+    @apply text-primary-light;
   }
 }

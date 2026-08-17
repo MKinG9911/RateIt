@@ -28,33 +28,26 @@ export default function EditListingPage() {
 
   useEffect(() => {
     Promise.all([
-      api<any>(`/listings/${listingId}`).catch(() => null),
+      api<any>(`/listings/by-id/${listingId}`),
       api<any[]>('/categories'),
-    ]).then(([listRes, catRes]) => {
-      // Try to get by ID — the endpoint uses slug, so we need to use a different approach
-      // Actually we need the listing by ID for edit. Let's fetch my listings and find it.
-    });
-
-    // Fetch listing by getting my listings
-    api<any>('/listings/my', { params: { limit: '100' } }).then((res) => {
-      if (res.success && res.data) {
-        const found = res.data.items.find((l: any) => l.id === listingId);
-        if (found) {
+    ])
+      .then(([listRes, catRes]) => {
+        if (listRes.success && listRes.data) {
+          const found = listRes.data;
           setListing(found);
-          setName(found.name);
+          setName(found.name || '');
           setDescription(found.description || '');
           setBrand(found.brand || '');
           setImageUrl(found.imageUrl || '');
           setWebsiteUrl(found.websiteUrl || '');
           setLocation(found.location || '');
         }
-      }
-      setLoading(false);
-    });
-
-    api<any[]>('/categories').then((res) => {
-      if (res.success && res.data) setCategories(res.data);
-    });
+        if (catRes.success && catRes.data) {
+          setCategories(catRes.data);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [listingId]);
 
   const hasReviews = listing?._count?.reviews > 0;

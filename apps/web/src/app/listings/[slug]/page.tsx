@@ -11,6 +11,9 @@ import { EmptyState } from '@/components/empty-state';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Breadcrumbs, BreadcrumbItem } from '@/components/breadcrumbs';
 import { UserAvatar } from '@/components/user-avatar';
+import { SocialShare } from '@/components/social-share';
+import { EditListingModal } from '@/components/edit-listing-modal';
+import { EditReviewModal } from '@/components/edit-review-modal';
 import ReviewImagesUploader from '@/components/review-images-uploader';
 import toast from 'react-hot-toast';
 import {
@@ -36,6 +39,9 @@ export default function ListingDetailPage() {
   const [listing, setListing] = useState<any>(null);
   const [reviews, setReviews] = useState<any>(null);
   const [hasReviewed, setHasReviewed] = useState(false);
+  const [existingReview, setExistingReview] = useState<any>(null);
+  const [editingReviewModal, setEditingReviewModal] = useState<any>(null);
+  const [editListingModalOpen, setEditListingModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reviewPage, setReviewPage] = useState(1);
 
@@ -74,7 +80,10 @@ export default function ListingDetailPage() {
   const checkReviewed = async () => {
     if (!listing || !supabaseUser || isAdmin) return;
     const res = await api<any>(`/listings/${listing.id}/reviews/check`);
-    if (res.success && res.data) setHasReviewed(res.data.hasReviewed);
+    if (res.success && res.data) {
+      setHasReviewed(res.data.hasReviewed);
+      setExistingReview(res.data.review || null);
+    }
   };
 
   useEffect(() => {
@@ -253,12 +262,12 @@ export default function ListingDetailPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row gap-8 mb-12">
         <div className="md:w-1/3">
-          <div className="aspect-square bg-surface rounded-2xl flex items-center justify-center overflow-hidden border border-surface-border">
+          <div className="aspect-square bg-surface/40 rounded-2xl flex items-center justify-center overflow-hidden border border-surface-border p-3 relative group">
             {listing.imageUrl ? (
               <img
                 src={listing.imageUrl}
                 alt={listing.name}
-                className="w-full h-full object-cover rounded-2xl"
+                className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl transition-transform duration-300 group-hover:scale-105"
               />
             ) : (
               <Tag className="w-16 h-16 text-text-muted" />
@@ -267,12 +276,37 @@ export default function ListingDetailPage() {
         </div>
 
         <div className="md:w-2/3">
-          <Link
-            href={`/categories/${listing.category?.slug}`}
-            className="badge-purple mb-3 inline-block"
-          >
-            {listing.category?.name}
-          </Link>
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <Link
+              href={`/categories/${listing.category?.slug}`}
+              className="badge-purple inline-block"
+            >
+              {listing.category?.name}
+            </Link>
+
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  onClick={() => setEditListingModalOpen(true)}
+                  className="btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5 hover:border-primary/40 transition-all"
+                  title="Edit listing details (Admin)"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-primary" />
+                  <span>Edit Listing</span>
+                </button>
+              )}
+
+              <SocialShare
+                title={listing.name}
+                description={listing.description}
+                category={listing.category?.name}
+                rating={listing.averageRating}
+                reviewCount={listing.reviewCount}
+                imageUrl={listing.imageUrl}
+                variant="button"
+              />
+            </div>
+          </div>
           <h1 className="text-3xl font-bold text-text-primary mb-3">{listing.name}</h1>
 
           {listing.brand && (
@@ -313,16 +347,25 @@ export default function ListingDetailPage() {
           </div>
 
           <div className="flex items-center gap-3 mt-4 text-xs text-text-muted">
-            <span className="flex items-center gap-1">
-              <User className="w-3 h-3" />
-              {listing.createdBy?.displayName || listing.createdBy?.username || 'Admin'}
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {new Date(listing.createdAt).toLocaleDateString()}
+            <span className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5" />
+              Updated on {new Date(listing.updatedAt).toLocaleDateString()}
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Social Media Share Bar */}
+      <div className="mb-8">
+        <SocialShare
+          title={listing.name}
+          description={listing.description}
+          category={listing.category?.name}
+          rating={listing.averageRating}
+          reviewCount={listing.reviewCount}
+          imageUrl={listing.imageUrl}
+          variant="inline"
+        />
       </div>
 
       {/* Rating Breakdown */}
@@ -343,11 +386,11 @@ export default function ListingDetailPage() {
               </h3>
               {listing.criterionAverages && listing.criterionAverages.length > 0
                 ? listing.criterionAverages.map((ca: any) => (
-                    <RatingBar key={ca.criterionId} label={ca.criterionName} value={ca.average} />
-                  ))
+                  <RatingBar key={ca.criterionId} label={ca.criterionName} value={ca.average} />
+                ))
                 : criteria.map((c: any) => (
-                    <RatingBar key={c.id} label={c.name} value={0} />
-                  ))}
+                  <RatingBar key={c.id} label={c.name} value={0} />
+                ))}
             </div>
 
             {/* Star Distribution */}
@@ -392,6 +435,41 @@ export default function ListingDetailPage() {
             <p className="text-xs text-text-secondary mt-0.5">
               You are logged in as an Administrator. Admins can create and manage listings, but are restricted from rating, writing reviews, or voting.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Review Banner for Users Who Have Already Reviewed */}
+      {hasReviewed && existingReview && !isAdmin && (
+        <div className="mb-8 p-5 bg-surface/70 border border-primary/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-primary/5">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="badge-purple text-xs">You rated this listing</span>
+              <StarRating rating={Number(existingReview.overallRating)} size="sm" />
+              <span className="text-xs font-bold text-text-primary">
+                {Number(existingReview.overallRating).toFixed(1)}
+              </span>
+            </div>
+            <p className="text-xs text-text-secondary line-clamp-1">
+              {existingReview.title ? `"${existingReview.title}" — ` : ''}{existingReview.content}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setEditingReviewModal({ ...existingReview, listing })}
+              className="btn-primary text-xs py-2 px-3.5 flex items-center gap-1.5"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Your Review & Rating</span>
+            </button>
+            <button
+              onClick={() => setDeleteReviewId(existingReview.id)}
+              className="p-2 rounded-xl border border-surface-border hover:bg-surface-light text-text-muted hover:text-accent-red transition-colors"
+              title="Delete your review"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
@@ -524,13 +602,22 @@ export default function ListingDetailPage() {
                   </div>
 
                   {appUser?.id === review.userId && !isAdmin && (
-                    <button
-                      onClick={() => setDeleteReviewId(review.id)}
-                      className="p-1.5 rounded-lg hover:bg-surface-light text-text-muted hover:text-accent-red transition-colors shrink-0"
-                      title="Delete review"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => setEditingReviewModal({ ...review, listing })}
+                        className="p-1.5 rounded-lg hover:bg-surface-light text-text-muted hover:text-primary transition-colors"
+                        title="Edit review & rating"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteReviewId(review.id)}
+                        className="p-1.5 rounded-lg hover:bg-surface-light text-text-muted hover:text-accent-red transition-colors"
+                        title="Delete review"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -589,11 +676,10 @@ export default function ListingDetailPage() {
                       disabled={isAdmin || votingReviewId === review.id}
                       onClick={() => handleVote(review.id, 'HELPFUL')}
                       title={isAdmin ? 'Admins cannot vote' : 'Mark as helpful'}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
-                        review.userVote === 'HELPFUL'
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${review.userVote === 'HELPFUL'
                           ? 'bg-accent-green/15 border-accent-green/30 text-accent-green font-semibold'
                           : 'border-surface-border text-text-muted hover:text-text-primary hover:bg-surface-light'
-                      } ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        } ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <ThumbsUp className="w-3.5 h-3.5" />
                       <span>Helpful ({review.helpfulCount || 0})</span>
@@ -604,11 +690,10 @@ export default function ListingDetailPage() {
                       disabled={isAdmin || votingReviewId === review.id}
                       onClick={() => handleVote(review.id, 'UNHELPFUL')}
                       title={isAdmin ? 'Admins cannot vote' : 'Mark as unhelpful'}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
-                        review.userVote === 'UNHELPFUL'
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${review.userVote === 'UNHELPFUL'
                           ? 'bg-accent-red/15 border-accent-red/30 text-accent-red font-semibold'
                           : 'border-surface-border text-text-muted hover:text-text-primary hover:bg-surface-light'
-                      } ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        } ${isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <ThumbsDown className="w-3.5 h-3.5" />
                       <span>({review.unhelpfulCount || 0})</span>
@@ -653,6 +738,29 @@ export default function ListingDetailPage() {
         confirmText="Delete"
         onConfirm={handleDeleteReview}
         onCancel={() => setDeleteReviewId(null)}
+      />
+
+      {/* Admin Edit Listing Modal */}
+      <EditListingModal
+        listing={listing}
+        open={editListingModalOpen}
+        onClose={() => setEditListingModalOpen(false)}
+        onUpdated={(updated) => {
+          setListing((prev: any) => ({ ...prev, ...updated }));
+          fetchListing();
+        }}
+      />
+
+      {/* User Edit Review Modal */}
+      <EditReviewModal
+        review={editingReviewModal}
+        open={!!editingReviewModal}
+        onClose={() => setEditingReviewModal(null)}
+        onUpdated={() => {
+          fetchReviews();
+          fetchListing();
+          checkReviewed();
+        }}
       />
     </div>
   );

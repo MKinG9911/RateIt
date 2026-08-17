@@ -189,7 +189,7 @@ export default function HomePage() {
               Hotels · Movies · Restaurants · Shops · Products — rated by real people
             </p>
 
-            <form onSubmit={handleSearch} className="flex gap-3 max-w-lg">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 max-w-lg">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
                 <input
@@ -200,12 +200,12 @@ export default function HomePage() {
                   className="input pl-12 py-3.5"
                 />
               </div>
-              <button type="submit" className="btn-primary px-8">
+              <button type="submit" className="btn-primary px-8 shrink-0">
                 Search
               </button>
             </form>
 
-            <div className="flex gap-2 mt-6">
+            <div className="flex flex-wrap gap-2 mt-6">
               {categories.slice(0, 8).map((cat) => {
                 const style = getCategoryStyle(cat.slug);
                 return (
@@ -313,12 +313,12 @@ export default function HomePage() {
                 href={`/listings/${listing.slug}`}
                 className="card-hover group"
               >
-                <div className="h-40 bg-surface rounded-xl mb-4 flex items-center justify-center overflow-hidden">
+                <div className="h-44 bg-surface/40 rounded-xl mb-4 flex items-center justify-center overflow-hidden border border-surface-border/50 p-2.5">
                   {listing.imageUrl ? (
                     <img
                       src={listing.imageUrl}
                       alt={listing.name}
-                      className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                      className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
                     <div className={getCategoryStyle(listing.category?.slug).color}>

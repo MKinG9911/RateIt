@@ -32,16 +32,33 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isProtected = protectedPaths.some((p) => path.startsWith(p));
 
-  if (isProtected) {
+  try {
     const {
       data: { user },
+      error,
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/auth/login';
-      url.searchParams.set('redirectTo', path);
-      return NextResponse.redirect(url);
+    // Gracefully clean up stale cookies if refresh token is expired/invalid
+    if (error && (error.message?.includes('Refresh Token') || (error as any).code === 'refresh_token_not_found')) {
+      request.cookies.getAll().forEach((cookie) => {
+        if (cookie.name.includes('auth-token') || cookie.name.startsWith('sb-')) {
+          supabaseResponse.cookies.delete(cookie.name);
+        }
+      });
+    }
+
+    if (isProtected && (!user || error)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/auth/login';
+      redirectUrl.searchParams.set('redirectTo', path);
+      return NextResponse.redirect(redirectUrl);
+    }
+  } catch {
+    if (isProtected) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/auth/login';
+      redirectUrl.searchParams.set('redirectTo', path);
+      return NextResponse.redirect(redirectUrl);
     }
   }
 

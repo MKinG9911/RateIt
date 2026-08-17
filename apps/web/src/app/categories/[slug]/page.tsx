@@ -319,12 +319,12 @@ function CategoryDetailContent() {
                     className="card-hover group flex flex-col justify-between"
                   >
                     <div>
-                      <div className="h-44 bg-surface rounded-xl mb-4 flex items-center justify-center overflow-hidden border border-surface-border">
+                      <div className="h-48 bg-surface/40 rounded-xl mb-4 flex items-center justify-center overflow-hidden border border-surface-border p-2.5">
                         {listing.imageUrl ? (
                           <img
                             src={listing.imageUrl}
                             alt={listing.name}
-                            className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                            className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg group-hover:scale-105 transition-transform duration-300"
                           />
                         ) : (
                           <span className="text-2xl font-bold text-text-muted/40">

@@ -80,8 +80,8 @@ export class ReviewsController {
 
   @Get('listings/:listingId/reviews/check')
   async checkReviewed(@Param('listingId') listingId: string, @CurrentUser() user: User) {
-    const hasReviewed = await this.reviewsService.hasReviewed(user.id, listingId);
-    return { success: true, data: { hasReviewed } };
+    const result = await this.reviewsService.checkUserReview(user.id, listingId);
+    return { success: true, data: result };
   }
 
   @Get('reviews/my')

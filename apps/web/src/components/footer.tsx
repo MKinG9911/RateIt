@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/lib/auth-context';
 import {
   Mail,
   Send,
@@ -16,33 +17,71 @@ import {
   Github,
   Twitter,
   Linkedin,
+  CheckCircle2,
 } from 'lucide-react';
 
 export function Footer() {
+  const { appUser, supabaseUser } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
+  const isLoggedIn = !!(appUser || supabaseUser);
+  const userEmail = appUser?.email || supabaseUser?.email || '';
+  const userDisplayName = appUser?.displayName || appUser?.username || '';
+
+  // Auto-detect and populate user credentials if logged in
+  useEffect(() => {
+    if (userEmail) {
+      setEmail(userEmail);
+    }
+    if (userDisplayName) {
+      setName((prev) => (prev ? prev : userDisplayName));
+    }
+  }, [userEmail, userDisplayName]);
+
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !message.trim()) {
+    const currentEmail = email.trim() || userEmail;
+    if (!name.trim() || !currentEmail || !message.trim()) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     setSending(true);
 
-    // Simulate sending message with realistic delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: currentEmail,
+          subject: subject.trim() || undefined,
+          message: message.trim(),
+        }),
+      });
 
-    toast.success('Thank you! Your message has been sent successfully.');
-    setName('');
-    setEmail('');
-    setSubject('');
-    setMessage('');
-    setSending(false);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        toast.success('Thank you! Your message has been sent to the admin.');
+        if (!isLoggedIn) {
+          setName('');
+          setEmail('');
+        }
+        setSubject('');
+        setMessage('');
+      } else {
+        toast.error(data.error || 'Failed to send message. Please try again.');
+      }
+    } catch {
+      toast.error('Network error. Please try again later.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const scrollToTop = () => {
@@ -57,11 +96,11 @@ export function Footer() {
 
       {/* Main Footer Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* Brand & Description Column (4 cols) */}
-          <div className="lg:col-span-4 space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12">
+          {/* Brand & Description Column */}
+          <div className="md:col-span-2 lg:col-span-4 space-y-5">
             <Link href="/" className="inline-flex items-center gap-2">
-              <span className="text-3xl font-extrabold tracking-tight">
+              <span className="text-3xl font-extrabold font-heading tracking-tight">
                 <span className="text-primary">Rate</span>
                 <span className="text-text-primary">It</span>
               </span>
@@ -111,8 +150,8 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Quick Links Column (3 cols) */}
-          <div className="lg:col-span-3 space-y-4">
+          {/* Quick Links Column */}
+          <div className="md:col-span-1 lg:col-span-2 space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
               Navigation
             </h3>
@@ -160,8 +199,8 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Top Categories Column (2 cols) */}
-          <div className="lg:col-span-2 space-y-4">
+          {/* Top Categories Column */}
+          <div className="md:col-span-1 lg:col-span-2 space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
               Top Categories
             </h3>
@@ -217,8 +256,8 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Contact Form Column (4 cols) */}
-          <div className="lg:col-span-4 space-y-4">
+          {/* Contact Form Column */}
+          <div className="md:col-span-2 lg:col-span-4 space-y-4">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary">
                 <MessageSquare className="w-4 h-4" />
@@ -252,9 +291,16 @@ export function Footer() {
                     placeholder="Your Email *"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-surface border border-surface-border rounded-xl text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    readOnly={isLoggedIn}
+                    title={isLoggedIn ? 'Auto-filled from your account' : undefined}
+                    className={`w-full pl-9 ${isLoggedIn ? 'pr-8 bg-surface-light/50 cursor-default text-text-primary' : 'pr-3 bg-surface text-text-primary'} py-2.5 border border-surface-border rounded-xl text-xs placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all`}
                     required
                   />
+                  {isLoggedIn && (
+                    <span title="Auto-detected from your account" className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-accent-green" />
+                    </span>
+                  )}
                 </div>
               </div>
 

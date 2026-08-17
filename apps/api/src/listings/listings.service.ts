@@ -117,21 +117,57 @@ export class ListingsService {
       }
     }
 
+    const targetCategoryId = data.categoryId || listing.categoryId;
+    const nameChanged = data.name !== undefined && data.name.trim() !== listing.name;
+    const categoryChanged = data.categoryId !== undefined && data.categoryId !== listing.categoryId;
+
     const updateData: Prisma.ListingUpdateInput = {};
 
-    if (data.name) {
-      updateData.name = data.name.trim();
-      updateData.normalizedName = normalizeName(data.name);
-      updateData.slug = generateSlug(data.name);
+    if (nameChanged || categoryChanged) {
+      const newName = data.name !== undefined ? data.name.trim() : listing.name;
+      const normalized = normalizeName(newName);
+      let newSlug = generateSlug(newName);
+
+      // Check if another listing in target category has this normalized name
+      const duplicate = await this.prisma.listing.findFirst({
+        where: {
+          id: { not: listingId },
+          categoryId: targetCategoryId,
+          normalizedName: normalized,
+        },
+      });
+
+      if (duplicate) {
+        throw new ConflictException('A listing with this name already exists in this category');
+      }
+
+      // Check if another listing in target category has this slug
+      const slugCollision = await this.prisma.listing.findFirst({
+        where: {
+          id: { not: listingId },
+          categoryId: targetCategoryId,
+          slug: newSlug,
+        },
+      });
+
+      if (slugCollision) {
+        newSlug = `${newSlug}-${Date.now().toString(36)}`;
+      }
+
+      updateData.name = newName;
+      updateData.normalizedName = normalized;
+      updateData.slug = newSlug;
     }
+
+    if (categoryChanged && data.categoryId) {
+      updateData.category = { connect: { id: data.categoryId } };
+    }
+
     if (data.description !== undefined) updateData.description = data.description;
     if (data.brand !== undefined) updateData.brand = data.brand;
     if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl || null;
     if (data.websiteUrl !== undefined) updateData.websiteUrl = data.websiteUrl || null;
     if (data.location !== undefined) updateData.location = data.location;
-    if (data.categoryId) {
-      updateData.category = { connect: { id: data.categoryId } };
-    }
 
     return this.prisma.listing.update({
       where: { id: listingId },
@@ -144,19 +180,19 @@ export class ListingsService {
   }
 
   /**
-   * Delete a listing — only if it has no reviews.
+   * Delete a listing — only if it has no reviews (or admin).
    */
-  async delete(listingId: string, userId: string) {
+  async delete(listingId: string, userId: string, isAdmin = false) {
     const listing = await this.prisma.listing.findUnique({
       where: { id: listingId },
       include: { _count: { select: { reviews: true } } },
     });
 
     if (!listing) throw new NotFoundException('Listing not found');
-    if (listing.createdById !== userId) {
+    if (!isAdmin && listing.createdById !== userId) {
       throw new ForbiddenException('You can only delete your own listings');
     }
-    if (listing._count.reviews > 0) {
+    if (!isAdmin && listing._count.reviews > 0) {
       throw new BadRequestException(
         'Cannot delete a listing that has reviews. Contact an admin to remove it.',
       );

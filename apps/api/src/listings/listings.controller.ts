@@ -75,6 +75,13 @@ export class ListingsController {
     return { success: true, data: result };
   }
 
+  @Get('by-id/:id')
+  @Public()
+  async findById(@Param('id') id: string) {
+    const listing = await this.listingsService.findById(id);
+    return { success: true, data: listing };
+  }
+
   @Get(':slug')
   @Public()
   async findBySlug(@Param('slug') slug: string) {
@@ -101,7 +108,7 @@ export class ListingsController {
     @CurrentUser() user: User,
     @Body(new ZodValidationPipe(updateListingSchema)) data: UpdateListingInput,
   ) {
-    const listing = await this.listingsService.update(id, user.id, data);
+    const listing = await this.listingsService.update(id, user.id, data, user.role === 'ADMIN');
     return { success: true, data: listing };
   }
 
@@ -109,7 +116,7 @@ export class ListingsController {
   @UseGuards(ActiveUserGuard, RolesGuard)
   @Roles('ADMIN')
   async delete(@Param('id') id: string, @CurrentUser() user: User) {
-    const result = await this.listingsService.delete(id, user.id);
+    const result = await this.listingsService.delete(id, user.id, user.role === 'ADMIN');
     return result;
   }
 }

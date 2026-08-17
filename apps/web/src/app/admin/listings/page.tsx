@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { EditListingModal } from '@/components/edit-listing-modal';
+import { Edit3 } from 'lucide-react';
 
 export default function AdminListingsPage() {
   const [data, setData] = useState<any>(null);
@@ -10,6 +12,7 @@ export default function AdminListingsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
+  const [editingListing, setEditingListing] = useState<any>(null);
 
   const fetchListings = async () => {
     const res = await api<any>('/admin/listings', {
@@ -144,7 +147,13 @@ export default function AdminListingsPage() {
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setEditingListing(listing)}
+                        className="text-xs text-primary hover:underline font-semibold flex items-center gap-1"
+                      >
+                        <Edit3 className="w-3 h-3" /> Edit
+                      </button>
                       {listing.status !== 'ACTIVE' && (
                         <button
                           onClick={() => handleModerate(listing.id, 'ACTIVE')}
@@ -177,6 +186,14 @@ export default function AdminListingsPage() {
           </table>
         </div>
       )}
+
+      {/* Admin Edit Listing Modal */}
+      <EditListingModal
+        listing={editingListing}
+        open={!!editingListing}
+        onClose={() => setEditingListing(null)}
+        onUpdated={fetchListings}
+      />
     </div>
   );
 }

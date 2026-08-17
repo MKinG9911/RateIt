@@ -88,15 +88,15 @@ export default function MyListingsPage() {
         <div className="space-y-4">
           {data.items.map((listing: any) => (
             <div key={listing.id} className="card flex items-center gap-4">
-              <div className="w-16 h-16 bg-surface rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="w-16 h-16 bg-surface/50 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border border-surface-border p-1">
                 {listing.imageUrl ? (
                   <img
                     src={listing.imageUrl}
                     alt=""
-                    className="w-full h-full object-cover rounded-xl"
+                    className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg"
                   />
                 ) : (
-                  <span className="text-xs text-text-muted">
+                  <span className="text-xs text-text-muted font-bold">
                     {listing.category?.name?.charAt(0)}
                   </span>
                 )}

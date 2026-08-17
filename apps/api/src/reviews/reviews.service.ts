@@ -386,14 +386,30 @@ export class ReviewsService {
   }
 
   /**
-   * Check if user has already reviewed a listing.
+   * Check if user has already reviewed a listing and return review data with ratings.
    */
-  async hasReviewed(userId: string, listingId: string): Promise<boolean> {
+  async checkUserReview(userId: string, listingId: string) {
     const existing = await this.prisma.review.findUnique({
       where: {
         userId_listingId: { userId, listingId },
       },
+      include: {
+        ratings: {
+          include: {
+            criterion: { select: { id: true, name: true, displayOrder: true } },
+          },
+        },
+      },
     });
-    return !!existing;
+
+    return {
+      hasReviewed: !!existing,
+      review: existing,
+    };
+  }
+
+  async hasReviewed(userId: string, listingId: string): Promise<boolean> {
+    const result = await this.checkUserReview(userId, listingId);
+    return result.hasReviewed;
   }
 }

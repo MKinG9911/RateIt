@@ -58,6 +58,7 @@ interface ParentCategory {
 }
 
 import { UserAvatar } from '@/components/user-avatar';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function Navbar() {
   const { appUser, supabaseUser, loading, signOut } = useAuth();
@@ -117,7 +118,7 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-2xl font-extrabold">
+            <span className="text-2xl font-extrabold font-heading tracking-tight">
               <span className="text-primary">Rate</span>
               <span className="text-text-primary">It</span>
             </span>
@@ -256,6 +257,8 @@ export function Navbar() {
 
           {/* Right side — desktop */}
           <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
+
             {loading ? (
               <div className="w-8 h-8 skeleton rounded-full" />
             ) : supabaseUser ? (
@@ -351,13 +354,17 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile menu toggle */}
-          <button
-            className="md:hidden p-2 rounded-lg hover:bg-surface-light transition-colors"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+          {/* Mobile menu toggle & Theme Toggle */}
+          <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
+            <button
+              className="p-2 rounded-lg hover:bg-surface-light transition-colors text-text-primary"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile menu */}

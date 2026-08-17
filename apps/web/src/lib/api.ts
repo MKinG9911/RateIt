@@ -24,8 +24,13 @@ export async function api<T = unknown>(
       const supabase = createClient();
       const {
         data: { session },
+        error,
       } = await supabase.auth.getSession();
-      accessToken = session?.access_token;
+      if (error && (error.message?.includes('Refresh Token') || (error as any).code === 'refresh_token_not_found')) {
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      } else {
+        accessToken = session?.access_token;
+      }
     } catch {
       // Session fetch error fallback
     }
